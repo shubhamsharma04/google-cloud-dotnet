@@ -30,7 +30,8 @@ namespace Google.Cloud.Storage.V1.PerformanceTests
     /// </summary>
     class Program
     {
-        private const string HundredMegFile = "100mb.dat";
+        private const string LargeFile = "5gb.dat";
+        private const long FileSize = 5 * 1024L * 1024L * 1024L;
 
         // Horrible global state, but it's simpler than passing it around...
         private static string bucket;
@@ -69,7 +70,7 @@ namespace Google.Cloud.Storage.V1.PerformanceTests
             var stream = new NullStream();
             for (int i = 0; i < iterations; i++)
             {
-                client.DownloadObject(bucket, HundredMegFile, stream,
+                client.DownloadObject(bucket, LargeFile, stream,
                     new DownloadObjectOptions { ChunkSize = 1 * 1024 * 1024 }, // 1MB chunks
                     new ProgressMonitor());
             }
@@ -92,21 +93,19 @@ namespace Google.Cloud.Storage.V1.PerformanceTests
         {
             try
             {
-                client.GetObject(bucket, HundredMegFile);
-                Console.WriteLine($"File {bucket}/{HundredMegFile} already exists. Skipping upload.");
+                client.GetObject(bucket, LargeFile);
+                Console.WriteLine($"File {bucket}/{LargeFile} already exists. Skipping upload.");
                 return;
             }
             catch (GoogleApiException e) when (e.HttpStatusCode == HttpStatusCode.NotFound)
             {
             }
-            Console.WriteLine($"File {bucket}/{HundredMegFile} not found. Creating.");
-            var data = new byte[100 * 1024 * 1024];
-            new Random().NextBytes(data);
-            var stream = new MemoryStream(data);
+            Console.WriteLine($"File {bucket}/{LargeFile} not found. Creating.");
+            var stream = new LongRandomStream(FileSize);
             var stopwatch = Stopwatch.StartNew();
-            client.UploadObject(bucket, HundredMegFile, "application/octet-stream", stream);
+            client.UploadObject(bucket, LargeFile, "application/octet-stream", stream);
             stopwatch.Stop();
-            Console.WriteLine($"100MB uploaded in {stopwatch.ElapsedMilliseconds}ms");
+            Console.WriteLine($"{FileSize} bytes uploaded in {stopwatch.ElapsedMilliseconds}ms");
         }
 
         private class ProgressMonitor : IProgress<IDownloadProgress>
